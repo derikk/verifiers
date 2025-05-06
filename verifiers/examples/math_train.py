@@ -17,22 +17,22 @@ CUDA_VISIBLE_DEVICES=4,5,6,7 accelerate launch --config-file configs/zero3.yaml 
 """
 
 TOOL_PROMPT = """
-Think step-by-step inside <reasoning>...</reasoning> tags, then either call a tool inside <tool>...</tool> tags, or give your final answer inside <answer>...</answer> tags.
+Think step-by-step inside <think>...</think> tags, then either call a tool inside <tool_call>...</tool_call> tags, or give your final answer inside <answer>...</answer> tags.
 
 You have access to the following tools to help solve problems:
 
 {tool_descriptions}
 
-Tools can be called by writing a JSON command inside <tool> tags with:
+Tools can be called by writing a JSON command inside <tool_call> tags with:
 - "name": the name of the tool to use
-- "args": the arguments for the tool
+- "arguments": the arguments for the tool
 
 Example usage:
-<tool>
-{{"name": "python", "args": {{"code": "import sympy\nx = sympy.symbols('x')\nprint(sympy.solve(x**2 - 4, x))"}}}}
-</tool>
+<tool_call>
+{{"name": "python", "arguments": {{"code": "import sympy\nx = sympy.symbols('x')\nprint(sympy.solve(x**2 - 4, x))"}}}}
+</tool_call>
 
-You will then see the tool's output inside <result> tags. You may call tools multiple times if needed.
+You will then see the tool's output inside <tool_response> tags. You may call tools multiple times if needed.
 
 The <answer>...</answer> tags should contain only your final answer.
 
@@ -63,7 +63,7 @@ vf_env = vf.ToolEnv(
 )
 print(vf_env.system_prompt)
 
-model_name = "Qwen/Qwen2.5-7B-Instruct"
+model_name = "Qwen/Qwen3-4B"
 model, tokenizer = vf.get_model_and_tokenizer(model_name)
 run_name = "math-grpo_" + model_name.split("/")[-1].lower()
 

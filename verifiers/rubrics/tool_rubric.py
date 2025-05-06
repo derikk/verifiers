@@ -7,8 +7,8 @@ from verifiers.rubrics.math_grader import grade
 
 class ToolRubric(Rubric):
     def __init__(self,
-                 parser: XMLParser = XMLParser(fields=["reasoning", ("tool", "answer")]),
-                 env_parser: XMLParser = XMLParser(fields=["result"]),
+                 parser: XMLParser = XMLParser(fields=["think", ("tool_call", "answer")]),
+                 env_parser: XMLParser = XMLParser(fields=["tool_response"]),
                  tools: List[Callable] = []):
         self.parser = parser
         self.env_parser = env_parser
@@ -178,19 +178,19 @@ class ToolRubric(Rubric):
                 if msg['role'] == 'assistant':
                     # Use parser to check for tool tag
                     parsed = self.parser.parse(msg['content'])
-                    if hasattr(parsed, 'tool') and parsed.tool is not None:
+                    if hasattr(parsed, 'tool_call') and parsed.tool_call is not None:
                         # Found a properly formatted tool message
                         if i + 1 < len(trajectory) and trajectory[i + 1]['role'] == 'user':
                             tool_attempts += 1
                             # Check response with env_parser
                             multiplier = 1.0 
-                            response = str(parsed.tool)
+                            response = str(parsed.tool_call)
                             if (("sympy" in response) or ("numpy" in response)) and len(response) > 100:
                                 multiplier = 1.5
                             else:
                                 multiplier = 0.5
                             parsed_response = self.env_parser.parse(trajectory[i + 1]['content'])
-                            if hasattr(parsed_response, 'result') and parsed_response.result is not None and not parsed_response.result.startswith("Error:"):
+                            if hasattr(parsed_response, 'tool_response') and parsed_response.tool_response is not None and not parsed_response.tool_response.startswith("Error:"):
                                 successful_executions += 1 * multiplier
             
             # Calculate reward
@@ -223,16 +223,16 @@ class ToolRubric(Rubric):
                     if msg['role'] == 'assistant':
                         # Use parser to check for tool tag
                         parsed = self.parser.parse(msg['content'])
-                        if hasattr(parsed, 'tool') and parsed.tool is not None:
+                        if hasattr(parsed, 'tool_call') and parsed.tool_call is not None:
                             try:
-                                command = json.loads(parsed.tool)
+                                command = json.loads(parsed.tool_call)
                                 if isinstance(command, dict) and command.get("name") == tool_name:
                                     # Found a properly formatted tool message for the specific tool
                                     if i + 1 < len(trajectory) and trajectory[i + 1]['role'] == 'user':
                                         tool_attempts += 1
                                         # Check response with env_parser
                                         parsed_response = self.env_parser.parse(trajectory[i + 1]['content'])
-                                        if hasattr(parsed_response, 'result') and parsed_response.result is not None and not parsed_response.result.startswith("Error:"):
+                                        if hasattr(parsed_response, 'tool_response') and parsed_response.tool_response is not None and not parsed_response.tool_response.startswith("Error:"):
                                             successful_executions += 1
                             except json.JSONDecodeError:
                                 pass
@@ -263,14 +263,14 @@ class ToolRubric(Rubric):
                 for i, msg in enumerate(trajectory):
                     if msg['role'] == 'assistant':
                         parsed = self.parser.parse(msg['content'])
-                        if hasattr(parsed, 'tool') and parsed.tool is not None:
+                        if hasattr(parsed, 'tool_call') and parsed.tool_call is not None:
                             try:
-                                command = json.loads(parsed.tool)
+                                command = json.loads(parsed.tool_call)
                                 if isinstance(command, dict) and command.get("name") == tool_name:
                                     # Found a properly formatted tool message for the specific tool
                                     if i + 1 < len(trajectory) and trajectory[i + 1]['role'] == 'user':
                                         parsed_response = self.env_parser.parse(trajectory[i + 1]['content'])
-                                        if hasattr(parsed_response, 'result') and parsed_response.result is not None and not parsed_response.result.startswith("Error:"):
+                                        if hasattr(parsed_response, 'tool_response') and parsed_response.tool_response is not None and not parsed_response.tool_response.startswith("Error:"):
                                             successful_executions += 1
                             except json.JSONDecodeError:
                                 pass
@@ -296,9 +296,9 @@ class ToolRubric(Rubric):
                 for i, msg in enumerate(trajectory):
                     if msg['role'] == 'assistant':
                         parsed = self.parser.parse(msg['content'])
-                        if hasattr(parsed, 'tool') and parsed.tool is not None:
+                        if hasattr(parsed, 'tool_call') and parsed.tool_call is not None:
                             try:
-                                command = json.loads(parsed.tool)
+                                command = json.loads(parsed.tool_call)
                                 if isinstance(command, dict) and command.get("name") == tool_name:
                                     attempted_executions += 1
                             except json.JSONDecodeError:

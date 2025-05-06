@@ -51,7 +51,7 @@ def infer_schema_from_function(func: Callable) -> Dict[str, Any]:
     return {
         "name": func.__name__,
         "description": description,
-        "args": args,
+        "arguments": args,
         "returns": return_description + f" ({return_type})",
         "examples": examples
     }
@@ -63,7 +63,7 @@ def format_tool_descriptions(schemas: List[Dict[str, Any]]) -> str:
         desc = [f"{schema['name']}: {schema['description']}"]
         
         desc.append("\nArguments:")
-        for arg_name, arg_info in schema['args'].items():
+        for arg_name, arg_info in schema['arguments'].items():
             default = f" (default: {arg_info['default']})" if 'default' in arg_info else ""
             desc.append(f"  - {arg_name}: {arg_info['description']}{default}")
         
@@ -87,7 +87,7 @@ class ToolEnv(MultiTurnEnv):
                  system_prompt: str = DEFAULT_TOOL_PROMPT_TEMPLATE,
                  few_shot: List[Dict[str, str]] = [],
                  sampling_args={
-                     "stop": ["</tool>\n", "</answer>\n"],
+                     "stop": ["</tool_call>\n", "</answer>\n"],
                      #"stop": [],
                      "include_stop_str_in_output": True
                  },
@@ -113,8 +113,8 @@ class ToolEnv(MultiTurnEnv):
         self.dataset_name = dataset
         self.max_steps = max_steps
         self.rubric = ToolRubric(tools=tools)
-        self.llm_parser = XMLParser(fields=["reasoning", ("tool", "answer")])
-        self.env_parser = XMLParser(fields=["result"])
+        self.llm_parser = XMLParser(fields=["think", ("tool_call", "answer")])
+        self.env_parser = XMLParser(fields=["tool_response"])
 
     def get_reward_funcs(self, **kwargs: Any) -> List[RewardFunc]:
         return self.rubric.get_reward_funcs()
@@ -158,37 +158,37 @@ class ToolEnv(MultiTurnEnv):
         try:
             command = json.loads(tool_json)
             if not isinstance(command, dict):
-                return "Error: Tool command must be a JSON object, e.g. '{\"name\": \"tool_name\", \"args\": {\"arg1\": \"value1\", \"arg2\": \"value2\"}}'"
+                return "Error: Tool command must be a JSON object, e.g. '{\"name\": \"tool_name\", \"arguments\": {\"arg1\": \"value1\", \"arg2\": \"value2\"}}'"
             
             tool_name = command.get("name")
             if not tool_name:
-                return "Error: Tool command must specify 'name', e.g. '{\"name\": \"tool_name\", \"args\": {\"arg1\": \"value1\", \"arg2\": \"value2\"}}'"
+                return "Error: Tool command must specify 'name', e.g. '{\"name\": \"tool_name\", \"arguments\": {\"arg1\": \"value1\", \"arg2\": \"value2\"}}'"
             
             if tool_name not in self.tools:
-                return f"Error: Unknown tool '{tool_name}. " + "Please format your tool call as '{\"name\": \"tool_name\", \"args\": {\"arg1\": \"value1\", \"arg2\": \"value2\"}}'"
+                return f"Error: Unknown tool '{tool_name}. " + "Please format your tool call as '{\"name\": \"tool_name\", \"arguments\": {\"arg1\": \"value1\", \"arg2\": \"value2\"}}'"
             
             tool_func = self.tools[tool_name]
-            tool_args = command.get("args", {})
+            tool_args = command.get("arguments", {})
             if isinstance(tool_args, str):
-                tool_schema = next((schema['args'] for schema in self.tool_schemas if schema['name'] == tool_name), None)
+                tool_schema = next((schema['arguments'] for schema in self.tool_schemas if schema['name'] == tool_name), None)
                 return f"Error: Arguments for {tool_name} must be a JSON object with schema {tool_schema}, not a string." 
             
             # Call the tool function with arguments
             result = tool_func(**tool_args)
             return str(result)
         except json.JSONDecodeError:
-            return "Error: Invalid JSON format. Please format your tool call as '{\"name\": \"tool_name\", \"args\": {\"arg1\": \"value1\", \"arg2\": \"value2\"}}'"
+            return "Error: Invalid JSON format. Please format your tool call as '{\"name\": \"tool_name\", \"arguments\": {\"arg1\": \"value1\", \"arg2\": \"value2\"}}'"
         except Exception as e:
-            return f"Error: {str(e)}. " + "Please format your tool call as '{\"name\": \"tool_name\", \"args\": {\"arg1\": \"value1\", \"arg2\": \"value2\"}}'"
+            return f"Error: {str(e)}. " + "Please format your tool call as '{\"name\": \"tool_name\", \"arguments\": {\"arg1\": \"value1\", \"arg2\": \"value2\"}}'"
 
     def env_response(self, messages: List[Dict[str, str]], **kwargs: Any) -> Dict[str, str]:
         try:
             parsed = self.llm_parser.parse(messages[-1]["content"])
             # Check if we got a valid tool field (not just None from failed parsing)
-            if hasattr(parsed, 'tool') and parsed.tool is not None:
-                result = self.call_tool(parsed.tool)
+            if hasattr(parsed, 'tool_call') and parsed.tool_call is not None:
+                result = self.call_tool(parsed.tool_call)
                 if len(result.strip()) > 0:
-                    return {"role": "user", "content": self.env_parser.format(result=result)}
+                    return {"role": "user", "content": self.env_parser.format(tool_response=result)}
                 else:
                     return {"role": "user", "content": "Error: Tool execution returned empty output."}
         except Exception:
