@@ -8,7 +8,7 @@ from verifiers.utils import preprocess_dataset
 """
 Multi-GPU training (single node, 4 training + 4 inference)
 
-CUDA_VISIBLE_DEVICES=0,1,2,3 python verifiers/inference/vllm_serve.py --model 'Qwen/Qwen2.5-7B-Instruct' \
+CUDA_VISIBLE_DEVICES=0,1,2,3 python verifiers/inference/vllm_serve.py --model 'Qwen/Qwen3-4B' \
     --tensor_parallel_size 4 --max_model_len 8192 --dtype bfloat16 \
     --gpu_memory_utilization 0.9 --enable_prefix_caching True \
     --host 0.0.0.0 --port 8000
@@ -70,7 +70,7 @@ run_name = "math-grpo_" + model_name.split("/")[-1].lower()
 training_args=GRPOConfig(
     output_dir=f"outputs/{run_name}",
     run_name=run_name,
-    learning_rate=1e-6,
+    learning_rate=2e-6,
     lr_scheduler_type="constant_with_warmup",
     warmup_steps=10,
     num_train_epochs=1,
@@ -79,7 +79,7 @@ training_args=GRPOConfig(
     bf16=True,
     max_grad_norm=0.1,
     num_iterations=2,
-    beta=0.002,
+    beta=0.0,
     max_prompt_length=1024,
     max_completion_length=2048,
     per_device_train_batch_size=12,
